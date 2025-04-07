@@ -5,6 +5,7 @@ import PriceChart from './PriceChart';
 import RSIChart from './RSIChart';
 import StatsPanel from './StatsPanel';
 import { availableCoins, generateMockData } from '@/lib/meme-coin-utils';
+import { loadCsvData } from '@/lib/csv-loader';
 import { toast } from "@/components/ui/use-toast";
 
 const Dashboard = () => {
@@ -12,39 +13,63 @@ const Dashboard = () => {
   const [coinData, setCoinData] = useState(generateMockData(currentCoin.symbol));
   const [loading, setLoading] = useState(false);
 
-  const handleSearch = (symbol: string) => {
+  const loadCoinData = async (symbol: string) => {
     setLoading(true);
-    // Find the coin from available coins
-    const coin = availableCoins.find(c => 
-      c.symbol.toLowerCase() === symbol.toLowerCase()
-    );
-    
-    if (!coin) {
+    try {
+      // Find the coin from available coins
+      const coin = availableCoins.find(c => 
+        c.symbol.toLowerCase() === symbol.toLowerCase()
+      );
+      
+      if (!coin) {
+        toast({
+          title: "Coin not found",
+          description: `${symbol} is not available. Try one of the suggested coins.`,
+          variant: "destructive"
+        });
+        setLoading(false);
+        return;
+      }
+      
+      // Try to load real CSV data
+      const csvData = await loadCsvData(symbol);
+      
+      if (csvData && csvData.length > 0) {
+        setCurrentCoin(coin);
+        setCoinData(csvData);
+        toast({
+          title: "Data loaded",
+          description: `${coin.name} (${coin.symbol}) data loaded successfully.`,
+        });
+      } else {
+        // Fallback to mock data
+        setCurrentCoin(coin);
+        setCoinData(generateMockData(coin.symbol));
+        toast({
+          title: "Using mock data",
+          description: `Could not load real data for ${coin.symbol}, using generated data instead.`,
+          variant: "default"
+        });
+      }
+    } catch (error) {
+      console.error("Error loading coin data:", error);
       toast({
-        title: "Coin not found",
-        description: `${symbol} is not available. Try one of the suggested coins.`,
+        title: "Error loading data",
+        description: "Failed to load coin data. Using mock data instead.",
         variant: "destructive"
       });
+    } finally {
       setLoading(false);
-      return;
     }
-    
-    // Mock loading API data
-    setTimeout(() => {
-      setCurrentCoin(coin);
-      // Generate mock data for the selected coin
-      setCoinData(generateMockData(coin.symbol));
-      toast({
-        title: "Data loaded",
-        description: `${coin.name} (${coin.symbol}) data loaded successfully.`
-      });
-      setLoading(false);
-    }, 800);
+  };
+
+  const handleSearch = (symbol: string) => {
+    loadCoinData(symbol);
   };
 
   // Load default coin on initial render
   useEffect(() => {
-    handleSearch(currentCoin.symbol);
+    loadCoinData(currentCoin.symbol);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

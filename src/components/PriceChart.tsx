@@ -29,6 +29,14 @@ const PriceChart: React.FC<PriceChartProps> = ({ data, symbol, logo }) => {
   const minPrice = Math.min(...data.map(d => d.price));
   const yAxisPrecision = minPrice < 0.001 ? 8 : minPrice < 0.1 ? 4 : 2;
   
+  // Check if data contains forecast values
+  const hasForecast = data.some(d => d.forecast_price !== null && d.forecast_price !== undefined);
+  
+  // Find the index where forecast begins (first non-null forecast value)
+  const forecastStartIndex = hasForecast ? 
+    data.findIndex(d => d.forecast_price !== null && d.forecast_price !== undefined) : 
+    -1;
+  
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp);
     return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:00`;
@@ -43,6 +51,7 @@ const PriceChart: React.FC<PriceChartProps> = ({ data, symbol, logo }) => {
     if (!payload || payload.length === 0) return null;
     
     const dataPoint = payload[0].payload;
+    const isForecast = dataPoint.forecast_price !== null && dataPoint.forecast_price !== undefined;
     
     return (
       <div className="bg-background/95 border border-border p-3 rounded-md shadow-lg">
@@ -50,6 +59,11 @@ const PriceChart: React.FC<PriceChartProps> = ({ data, symbol, logo }) => {
         <p>
           <span className="font-bold">Price:</span> ${formatPrice(dataPoint.price)}
         </p>
+        {isForecast && (
+          <p className="text-blue-400 font-medium">
+            <span className="font-bold">Forecast:</span> ${formatPrice(dataPoint.forecast_price || 0)}
+          </p>
+        )}
         <div className="grid grid-cols-2 gap-2 mt-2">
           <p>
             <span className="text-boom">EMA 6H:</span> ${formatPrice(dataPoint.ema_6h)}
@@ -70,6 +84,11 @@ const PriceChart: React.FC<PriceChartProps> = ({ data, symbol, logo }) => {
             <span className="text-blue-400">Whales:</span> {dataPoint.whale_transactions}
           </p>
         </div>
+        {dataPoint.lifestage && (
+          <p className="mt-2">
+            <span className="font-bold">Life Stage:</span> {dataPoint.lifestage}
+          </p>
+        )}
       </div>
     );
   };
@@ -97,6 +116,10 @@ const PriceChart: React.FC<PriceChartProps> = ({ data, symbol, logo }) => {
             <linearGradient id="priceGradient" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="#39FF14" stopOpacity={0.3} />
               <stop offset="95%" stopColor="#39FF14" stopOpacity={0} />
+            </linearGradient>
+            <linearGradient id="forecastGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#1E90FF" stopOpacity={0.3} />
+              <stop offset="95%" stopColor="#1E90FF" stopOpacity={0} />
             </linearGradient>
           </defs>
           <XAxis 
@@ -127,6 +150,20 @@ const PriceChart: React.FC<PriceChartProps> = ({ data, symbol, logo }) => {
             strokeWidth={2}
             name="Price"
           />
+          
+          {/* Forecast Data if available */}
+          {hasForecast && (
+            <Area 
+              type="monotone" 
+              dataKey="forecast_price" 
+              stroke="#1E90FF" 
+              fillOpacity={0.5}
+              fill="url(#forecastGradient)" 
+              strokeWidth={2}
+              strokeDasharray="5 5"
+              name="Forecast"
+            />
+          )}
           
           {/* Technical Indicators */}
           <Area 
@@ -167,18 +204,28 @@ const PriceChart: React.FC<PriceChartProps> = ({ data, symbol, logo }) => {
             name="Lower Band"
           />
           
-          {/* Line when price crosses above/below EMA */}
-          {data.map((point, i) => {
+          {/* Mark where forecast begins */}
+          {forecastStartIndex >= 0 && (
+            <ReferenceLine
+              x={data[forecastStartIndex].timestamp}
+              stroke="#1E90FF"
+              strokeWidth={2}
+              label={{ value: "Forecast Start", position: "insideTopRight", fill: "#1E90FF" }}
+            />
+          )}
+          
+          {/* Show life stage transitions */}
+          {chartData.map((point, i, arr) => {
             if (i === 0) return null;
-            const prevPoint = data[i-1];
-            if ((prevPoint.price < prevPoint.ema_6h && point.price >= point.ema_6h) ||
-                (prevPoint.price > prevPoint.ema_6h && point.price <= point.ema_6h)) {
+            const prevPoint = arr[i-1];
+            if (point.lifestage && prevPoint.lifestage && point.lifestage !== prevPoint.lifestage) {
               return (
                 <ReferenceLine 
-                  key={`cross-${i}`}
+                  key={`lifestage-${i}`}
                   x={point.timestamp} 
-                  stroke="#FF1493" 
-                  strokeDasharray="5 5" 
+                  stroke="#FFA500" 
+                  strokeDasharray="3 3"
+                  label={{ value: `${point.lifestage}`, position: "insideTop", fill: "#FFA500" }}
                 />
               );
             }

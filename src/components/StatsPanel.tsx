@@ -34,6 +34,9 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ data, symbol }) => {
   // Calculate boom/doom score
   const boomDoomScore = calculateBoomDoomScore(data);
   
+  // Current lifestage
+  const currentLifestage = latestData.lifestage || 'Unknown';
+  
   // Generate rockets based on score
   const rockets = Array(boomDoomScore)
     .fill(0)
@@ -75,6 +78,12 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ data, symbol }) => {
             </p>
           </div>
         </div>
+        {currentLifestage && currentLifestage !== 'Unknown' && (
+          <div className="mt-3 bg-secondary/30 p-2 rounded">
+            <p className="text-xs text-muted-foreground">Current Life Stage</p>
+            <p className="font-medium">{currentLifestage}</p>
+          </div>
+        )}
       </div>
       
       {/* Whale Activity */}

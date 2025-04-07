@@ -48,6 +48,11 @@ const RSIChart: React.FC<RSIChartProps> = ({ data }) => {
         <p>
           <span className="font-bold">Condition:</span> {condition}
         </p>
+        {dataPoint.lifestage && (
+          <p>
+            <span className="font-bold">Life Stage:</span> {dataPoint.lifestage}
+          </p>
+        )}
       </div>
     );
   };
@@ -138,13 +143,11 @@ const RSIChart: React.FC<RSIChartProps> = ({ data }) => {
           <Area 
             type="monotone" 
             dataKey="rsi" 
-            stroke="stroke-current" 
+            stroke="#8A2BE2" 
             strokeWidth={2}
             fill="url(#rsiGradient)" 
             dot={false}
             activeDot={{ r: 4, fill: "#fff", stroke: "#8A2BE2" }}
-            // Using the color attribute to determine stroke color
-            stroke="#8A2BE2"
           />
         </AreaChart>
       </ResponsiveContainer>

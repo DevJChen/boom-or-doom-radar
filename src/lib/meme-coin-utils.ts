@@ -1,4 +1,3 @@
-
 // Types for meme coin data
 export interface MemeCoinData {
   timestamp: number;
@@ -8,9 +7,15 @@ export interface MemeCoinData {
   rsi: number;
   ema_6h: number;
   ma_6h: number;
+  ema_24h?: number;
+  ma_24h?: number;
   bollinger_upper: number;
   bollinger_lower: number;
   whale_transactions: number;
+  forecast_price?: number | null;
+  lifestage?: string;
+  rolling_high_24h?: number;
+  rolling_low_24h?: number;
 }
 
 export interface MemeCoin {
@@ -20,7 +25,7 @@ export interface MemeCoin {
   data: MemeCoinData[];
 }
 
-// List of available meme coins for search
+// List of available meme coins for search - updated to match CSV files
 export const availableCoins = [
   { symbol: 'DOGE', name: 'Dogecoin', logo: '🐶' },
   { symbol: 'SHIB', name: 'Shiba Inu', logo: '🦊' },
@@ -32,9 +37,15 @@ export const availableCoins = [
   { symbol: 'BABYDOGE', name: 'Baby Doge Coin', logo: '🐶' },
   { symbol: 'SAMO', name: 'Samoyedcoin', logo: '🐕' },
   { symbol: 'ELON', name: 'Dogelon Mars', logo: '👽' },
+  // Additional coins from CSV files
+  { symbol: 'AMC', name: 'AMC Entertainment', logo: '🎬' },
+  { symbol: 'GME', name: 'GameStop', logo: '🎮' },
+  { symbol: 'SLERF', name: 'Slerf', logo: '😴' },
+  { symbol: 'POPCAT', name: 'Popcat', logo: '🐱' },
+  { symbol: 'MYRO', name: 'Myro', logo: '🐾' },
 ];
 
-// Generate mock data for a given coin
+// Generate mock data for a given coin (fallback if CSV loading fails)
 export function generateMockData(symbol: string, days = 30): MemeCoinData[] {
   const data: MemeCoinData[] = [];
   const now = Date.now();
@@ -103,6 +114,9 @@ export function calculateBoomDoomScore(data: MemeCoinData[]): number {
   
   // 5. Price vs EMA (above EMA = good)
   const emaRelation = recentData[recentData.length - 1].price > recentData[recentData.length - 1].ema_6h ? 1 : -1;
+
+  // 6. Lifestage data if available
+  const lifestageBonus = recentData[recentData.length - 1].lifestage?.includes('pump') ? 1 : 0;
   
   // Calculate weighted score
   let score = 0;
@@ -111,6 +125,7 @@ export function calculateBoomDoomScore(data: MemeCoinData[]): number {
   score += volumeChange;
   score += whaleActivity * 0.2;
   score += emaRelation;
+  score += lifestageBonus;
   
   // Normalize to 0-5 scale
   score = Math.max(0, Math.min(Math.round((score + 3) * 5/6), 5));
@@ -157,9 +172,17 @@ export function getPercentageChange(oldValue: number, newValue: number): string 
 export function get24HHighLow(data: MemeCoinData[]): { high: number; low: number } {
   if (data.length === 0) return { high: 0, low: 0 };
   
-  // Get data from the last 24 hours
-  const last24h = data.slice(-24);
+  // If the data has rolling high/low values, use those
+  if (data[data.length - 1].rolling_high_24h !== undefined && 
+      data[data.length - 1].rolling_low_24h !== undefined) {
+    return {
+      high: data[data.length - 1].rolling_high_24h as number,
+      low: data[data.length - 1].rolling_low_24h as number
+    };
+  }
   
+  // Otherwise calculate from the data
+  const last24h = data.slice(-24);
   const high = Math.max(...last24h.map(d => d.price));
   const low = Math.min(...last24h.map(d => d.price));
   
