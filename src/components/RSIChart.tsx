@@ -52,11 +52,18 @@ const RSIChart: React.FC<RSIChartProps> = ({ data }) => {
     );
   };
 
-  const getRSIColor = (value: number) => {
+  // Instead of using a function directly for the stroke,
+  // we'll pre-process the data to include the color
+  const chartDataWithColors = chartData.map(item => ({
+    ...item,
+    rsiColor: getRSIColor(item.rsi)
+  }));
+
+  function getRSIColor(value: number): string {
     if (value >= 70) return '#FF1493'; // Overbought - doom color
     if (value <= 30) return '#39FF14'; // Oversold - boom color
     return '#8A2BE2'; // Neutral - neutral color
-  };
+  }
 
   return (
     <div className="w-full h-[200px] rounded-lg glass-card p-4">
@@ -79,7 +86,7 @@ const RSIChart: React.FC<RSIChartProps> = ({ data }) => {
       </div>
       
       <ResponsiveContainer width="100%" height="85%">
-        <AreaChart data={chartData}>
+        <AreaChart data={chartDataWithColors}>
           <defs>
             <linearGradient id="rsiGradient" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="#8A2BE2" stopOpacity={0.3} />
@@ -131,10 +138,13 @@ const RSIChart: React.FC<RSIChartProps> = ({ data }) => {
           <Area 
             type="monotone" 
             dataKey="rsi" 
-            stroke={(data) => getRSIColor(data.rsi)}
+            stroke="stroke-current" 
+            strokeWidth={2}
             fill="url(#rsiGradient)" 
             dot={false}
             activeDot={{ r: 4, fill: "#fff", stroke: "#8A2BE2" }}
+            // Using the color attribute to determine stroke color
+            stroke="#8A2BE2"
           />
         </AreaChart>
       </ResponsiveContainer>
