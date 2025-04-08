@@ -4,17 +4,23 @@ import SearchBar from './SearchBar';
 import PriceChart from './PriceChart';
 import RSIChart from './RSIChart';
 import StatsPanel from './StatsPanel';
+import TimeFrameSelector from './TimeFrameSelector';
 import { availableCoins, generateMockData } from '@/lib/meme-coin-utils';
-import { loadCsvData } from '@/lib/csv-loader';
+import { loadCsvData, filterDataByTimeFrame } from '@/lib/csv-loader';
 import { toast } from "@/components/ui/use-toast";
 
 const Dashboard = () => {
   const [currentCoin, setCurrentCoin] = useState(availableCoins[0]);
   const [coinData, setCoinData] = useState(generateMockData(currentCoin.symbol));
+  const [filteredData, setFilteredData] = useState(coinData);
   const [loading, setLoading] = useState(false);
+  const [timeFrame, setTimeFrame] = useState('ALL');
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadCoinData = async (symbol: string) => {
     setLoading(true);
+    setLoadError(null);
+    
     try {
       // Find the coin from available coins
       const coin = availableCoins.find(c => 
@@ -32,31 +38,50 @@ const Dashboard = () => {
       }
       
       // Try to load real CSV data
-      let csvData = await loadCsvData(symbol);
-      
-      if (csvData && csvData.length > 0) {
-        // Ensure the data is sorted by timestamp
-        csvData = csvData.sort((a, b) => a.timestamp - b.timestamp);
+      try {
+        console.log(`Attempting to load data for ${symbol}...`);
+        let csvData = await loadCsvData(symbol);
         
-        setCurrentCoin(coin);
-        setCoinData(csvData);
-        toast({
-          title: "Data loaded",
-          description: `${coin.name} (${coin.symbol}) data loaded successfully with ${csvData.length} data points.`,
-        });
-      } else {
-        // Fallback to mock data
-        const mockData = generateMockData(coin.symbol);
-        setCurrentCoin(coin);
-        setCoinData(mockData);
-        toast({
-          title: "Using mock data",
-          description: `Could not load real data for ${coin.symbol}, using generated data instead.`,
-          variant: "default"
-        });
+        if (csvData && csvData.length > 0) {
+          // Ensure the data is sorted by timestamp
+          csvData = csvData.sort((a, b) => a.timestamp - b.timestamp);
+          
+          setCurrentCoin(coin);
+          setCoinData(csvData);
+          
+          // Also update filtered data based on current time frame
+          const filtered = filterDataByTimeFrame(csvData, timeFrame);
+          setFilteredData(filtered);
+          
+          toast({
+            title: "Data loaded",
+            description: `${coin.name} (${coin.symbol}) data loaded successfully with ${csvData.length} data points.`,
+          });
+          setLoadError(null);
+          return;
+        }
+      } catch (error) {
+        console.error("Error during CSV load:", error);
+        setLoadError(`Failed to load data for ${symbol}. ${error instanceof Error ? error.message : ''}`);
       }
+      
+      // Fallback to mock data if CSV load fails
+      console.log(`Using mock data for ${symbol}`);
+      const mockData = generateMockData(coin.symbol);
+      setCurrentCoin(coin);
+      setCoinData(mockData);
+      setFilteredData(filterDataByTimeFrame(mockData, timeFrame));
+      
+      toast({
+        title: "Using mock data",
+        description: `Could not load real data for ${coin.symbol}, using generated data instead.`,
+        variant: "default"
+      });
+      
     } catch (error) {
       console.error("Error loading coin data:", error);
+      setLoadError(`General error loading data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      
       toast({
         title: "Error loading data",
         description: "Failed to load coin data. Using mock data instead.",
@@ -64,7 +89,9 @@ const Dashboard = () => {
       });
       
       // Set fallback mock data
-      setCoinData(generateMockData(currentCoin.symbol));
+      const mockData = generateMockData(currentCoin.symbol);
+      setCoinData(mockData);
+      setFilteredData(filterDataByTimeFrame(mockData, timeFrame));
     } finally {
       setLoading(false);
     }
@@ -74,6 +101,11 @@ const Dashboard = () => {
     if (symbol) {
       loadCoinData(symbol);
     }
+  };
+  
+  const handleTimeFrameChange = (newTimeFrame: string) => {
+    setTimeFrame(newTimeFrame);
+    setFilteredData(filterDataByTimeFrame(coinData, newTimeFrame));
   };
 
   // Load default coin on initial render
@@ -98,22 +130,36 @@ const Dashboard = () => {
             <p className="text-lg">Loading {currentCoin.symbol} data...</p>
           </div>
         </div>
-      ) : coinData.length === 0 ? (
+      ) : filteredData.length === 0 ? (
         <div className="flex items-center justify-center h-[500px] glass-card rounded-lg">
           <div className="text-center">
             <p className="text-xl mb-4">No data available for {currentCoin.symbol}</p>
+            {loadError && (
+              <p className="text-doom mb-4">{loadError}</p>
+            )}
             <p className="text-lg text-muted-foreground">Try searching for a different coin</p>
           </div>
         </div>
       ) : (
         <>
+          <div className="flex flex-col md:flex-row justify-between items-center">
+            <h2 className="text-xl font-semibold flex items-center gap-2">
+              <span className="text-2xl">{currentCoin.logo}</span>
+              {currentCoin.name} ({currentCoin.symbol})
+            </h2>
+            <TimeFrameSelector 
+              currentTimeFrame={timeFrame} 
+              onTimeFrameChange={handleTimeFrameChange} 
+            />
+          </div>
+          
           <PriceChart 
-            data={coinData} 
+            data={filteredData} 
             symbol={currentCoin.symbol} 
             logo={currentCoin.logo} 
           />
-          <RSIChart data={coinData} />
-          <StatsPanel data={coinData} symbol={currentCoin.symbol} />
+          <RSIChart data={filteredData} />
+          <StatsPanel data={filteredData} symbol={currentCoin.symbol} />
         </>
       )}
     </div>

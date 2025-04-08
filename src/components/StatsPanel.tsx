@@ -9,48 +9,50 @@ interface StatsPanelProps {
 }
 
 const StatsPanel: React.FC<StatsPanelProps> = ({ data, symbol }) => {
-  if (data.length === 0) return null;
+  if (!data || data.length === 0) return null;
 
   // Get latest data point
   const latestData = data[data.length - 1];
   
   // Get data from 24 hours ago (24 points assuming hourly data)
-  const yesterday = data.length > 24 ? data[data.length - 25] : data[0];
+  const yesterdayIndex = Math.max(0, data.length - 25);
+  const yesterday = data[yesterdayIndex];
   
   // Calculate 24-hour high and low
   const { high, low } = get24HHighLow(data);
   
   // Calculate volume change
-  const volumeChange = getPercentageChange(yesterday.volume, latestData.volume);
+  const volumeChange = yesterday ? getPercentageChange(yesterday.volume || 0, latestData.volume || 0) : '0.00%';
   
   // Calculate marketcap change
-  const marketCapChange = getPercentageChange(yesterday.market_cap, latestData.market_cap);
+  const marketCapChange = yesterday ? getPercentageChange(yesterday.market_cap || 0, latestData.market_cap || 0) : '0.00%';
   
   // Count whale transactions in last 24h
   const whaleTransactions = data
-    .slice(-24)
-    .reduce((sum, point) => sum + point.whale_transactions, 0);
+    .slice(-Math.min(24, data.length))
+    .reduce((sum, point) => sum + (point.whale_transactions || 0), 0);
   
-  // Calculate boom/doom score
+  // Calculate boom/doom score with proper error handling
   const boomDoomScore = calculateBoomDoomScore(data);
   
-  // Ensure boomDoomScore is a non-negative integer to avoid array length errors
+  // Ensure boomDoomScore is a valid, non-negative integer
   const safeScore = Math.max(0, Math.min(5, Math.floor(boomDoomScore || 0)));
   
   // Current lifestage
   const currentLifestage = latestData.lifestage || 'Unknown';
   
-  // Generate rockets based on score
-  const rockets = Array(safeScore)
-    .fill(0)
-    .map((_, i) => (
+  // Generate rockets based on score - use a regular for loop for safety
+  const rockets: JSX.Element[] = [];
+  for (let i = 0; i < safeScore; i++) {
+    rockets.push(
       <Rocket 
         key={i} 
         className={`text-boom animate-pulse-boom`} 
         size={20} 
         style={{ animationDelay: `${i * 0.3}s` }}
       />
-    ));
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
