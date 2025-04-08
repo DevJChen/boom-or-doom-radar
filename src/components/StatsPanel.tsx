@@ -34,11 +34,14 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ data, symbol }) => {
   // Calculate boom/doom score
   const boomDoomScore = calculateBoomDoomScore(data);
   
+  // Ensure boomDoomScore is a non-negative integer to avoid array length errors
+  const safeScore = Math.max(0, Math.min(5, Math.floor(boomDoomScore || 0)));
+  
   // Current lifestage
   const currentLifestage = latestData.lifestage || 'Unknown';
   
   // Generate rockets based on score
-  const rockets = Array(boomDoomScore)
+  const rockets = Array(safeScore)
     .fill(0)
     .map((_, i) => (
       <Rocket 
@@ -113,11 +116,11 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ data, symbol }) => {
               : <p className="text-xl text-doom">DOOM</p>}
           </div>
           <p className="text-sm text-muted-foreground">
-            {boomDoomScore === 5 ? "🚀 TO THE MOON!" : 
-             boomDoomScore === 4 ? "Looking very bullish!" :
-             boomDoomScore === 3 ? "Cautiously optimistic" :
-             boomDoomScore === 2 ? "Neutral territory" :
-             boomDoomScore === 1 ? "Proceed with caution" :
+            {safeScore === 5 ? "🚀 TO THE MOON!" : 
+             safeScore === 4 ? "Looking very bullish!" :
+             safeScore === 3 ? "Cautiously optimistic" :
+             safeScore === 2 ? "Neutral territory" :
+             safeScore === 1 ? "Proceed with caution" :
              "Danger zone! ⚠️"}
           </p>
         </div>

@@ -98,39 +98,52 @@ export function calculateBoomDoomScore(data: MemeCoinData[]): number {
   // Take the last 24 hours of data
   const recentData = data.slice(-24);
   
-  // Factors to consider for the boom/doom score
-  // 1. Price trend (up = good)
-  const priceChange = (recentData[recentData.length - 1].price - recentData[0].price) / recentData[0].price;
+  // Handle edge case where first data point has invalid values
+  if (!recentData[0] || !recentData[recentData.length - 1]) return 0;
   
-  // 2. RSI (middle is good, extremes are bad)
-  const latestRSI = recentData[recentData.length - 1].rsi;
-  const rsiScore = latestRSI > 70 || latestRSI < 30 ? -1 : 1;
-  
-  // 3. Volume trend (up = good)
-  const volumeChange = (recentData[recentData.length - 1].volume - recentData[0].volume) / recentData[0].volume;
-  
-  // 4. Whale transactions (high = boom potential)
-  const whaleActivity = recentData.reduce((sum, dataPoint) => sum + dataPoint.whale_transactions, 0);
-  
-  // 5. Price vs EMA (above EMA = good)
-  const emaRelation = recentData[recentData.length - 1].price > recentData[recentData.length - 1].ema_6h ? 1 : -1;
+  try {
+    // Factors to consider for the boom/doom score
+    // 1. Price trend (up = good)
+    const priceChange = recentData[0].price !== 0 ? 
+      (recentData[recentData.length - 1].price - recentData[0].price) / recentData[0].price : 0;
+    
+    // 2. RSI (middle is good, extremes are bad)
+    const latestRSI = recentData[recentData.length - 1].rsi || 50;
+    const rsiScore = latestRSI > 70 || latestRSI < 30 ? -1 : 1;
+    
+    // 3. Volume trend (up = good)
+    const volumeChange = recentData[0].volume !== 0 ?
+      (recentData[recentData.length - 1].volume - recentData[0].volume) / recentData[0].volume : 0;
+    
+    // 4. Whale transactions (high = boom potential)
+    const whaleActivity = recentData.reduce((sum, dataPoint) => sum + (dataPoint.whale_transactions || 0), 0);
+    
+    // 5. Price vs EMA (above EMA = good)
+    const latestPrice = recentData[recentData.length - 1].price || 0;
+    const latestEma = recentData[recentData.length - 1].ema_6h || 0;
+    const emaRelation = (latestPrice > 0 && latestEma > 0) ? 
+      (latestPrice > latestEma ? 1 : -1) : 0;
 
-  // 6. Lifestage data if available
-  const lifestageBonus = recentData[recentData.length - 1].lifestage?.includes('pump') ? 1 : 0;
-  
-  // Calculate weighted score
-  let score = 0;
-  score += priceChange * 2;  // Price trend is important
-  score += rsiScore;
-  score += volumeChange;
-  score += whaleActivity * 0.2;
-  score += emaRelation;
-  score += lifestageBonus;
-  
-  // Normalize to 0-5 scale
-  score = Math.max(0, Math.min(Math.round((score + 3) * 5/6), 5));
-  
-  return score;
+    // 6. Lifestage data if available
+    const lifestageBonus = recentData[recentData.length - 1].lifestage?.includes('pump') ? 1 : 0;
+    
+    // Calculate weighted score
+    let score = 0;
+    score += priceChange * 2;  // Price trend is important
+    score += rsiScore;
+    score += volumeChange;
+    score += whaleActivity * 0.2;
+    score += emaRelation;
+    score += lifestageBonus;
+    
+    // Normalize to 0-5 scale and ensure it's a valid number
+    const normalizedScore = Math.max(0, Math.min(Math.round((score + 3) * 5/6), 5));
+    
+    return isNaN(normalizedScore) ? 0 : normalizedScore;
+  } catch (error) {
+    console.error("Error calculating Boom/Doom score:", error);
+    return 0;
+  }
 }
 
 // Format large numbers for display

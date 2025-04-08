@@ -32,19 +32,23 @@ const Dashboard = () => {
       }
       
       // Try to load real CSV data
-      const csvData = await loadCsvData(symbol);
+      let csvData = await loadCsvData(symbol);
       
       if (csvData && csvData.length > 0) {
+        // Ensure the data is sorted by timestamp
+        csvData = csvData.sort((a, b) => a.timestamp - b.timestamp);
+        
         setCurrentCoin(coin);
         setCoinData(csvData);
         toast({
           title: "Data loaded",
-          description: `${coin.name} (${coin.symbol}) data loaded successfully.`,
+          description: `${coin.name} (${coin.symbol}) data loaded successfully with ${csvData.length} data points.`,
         });
       } else {
         // Fallback to mock data
+        const mockData = generateMockData(coin.symbol);
         setCurrentCoin(coin);
-        setCoinData(generateMockData(coin.symbol));
+        setCoinData(mockData);
         toast({
           title: "Using mock data",
           description: `Could not load real data for ${coin.symbol}, using generated data instead.`,
@@ -58,13 +62,18 @@ const Dashboard = () => {
         description: "Failed to load coin data. Using mock data instead.",
         variant: "destructive"
       });
+      
+      // Set fallback mock data
+      setCoinData(generateMockData(currentCoin.symbol));
     } finally {
       setLoading(false);
     }
   };
 
   const handleSearch = (symbol: string) => {
-    loadCoinData(symbol);
+    if (symbol) {
+      loadCoinData(symbol);
+    }
   };
 
   // Load default coin on initial render
@@ -87,6 +96,13 @@ const Dashboard = () => {
           <div className="text-center">
             <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-neutral mb-4"></div>
             <p className="text-lg">Loading {currentCoin.symbol} data...</p>
+          </div>
+        </div>
+      ) : coinData.length === 0 ? (
+        <div className="flex items-center justify-center h-[500px] glass-card rounded-lg">
+          <div className="text-center">
+            <p className="text-xl mb-4">No data available for {currentCoin.symbol}</p>
+            <p className="text-lg text-muted-foreground">Try searching for a different coin</p>
           </div>
         </div>
       ) : (
