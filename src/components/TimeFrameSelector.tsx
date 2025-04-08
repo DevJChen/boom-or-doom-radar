@@ -1,11 +1,5 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from '@/components/ui/tooltip';
 
 interface TimeFrameSelectorProps {
   currentTimeFrame: string;
@@ -16,7 +10,14 @@ const TimeFrameSelector: React.FC<TimeFrameSelectorProps> = ({
   currentTimeFrame,
   onTimeFrameChange
 }) => {
-  const timeFrames = ['1D', '1W', '1M', '3M', '1Y', 'ALL'];
+  const timeFrames = [
+    { label: '1D', value: '1D' },
+    { label: '1W', value: '1W' },
+    { label: '1M', value: '1M' },
+    { label: '3M', value: '3M' },
+    { label: '1Y', value: '1Y' },
+    { label: 'ALL', value: 'ALL' }
+  ];
   
   const getTimeFrameDescription = (timeFrame: string): string => {
     switch (timeFrame) {
@@ -31,23 +32,17 @@ const TimeFrameSelector: React.FC<TimeFrameSelectorProps> = ({
   };
   
   return (
-    <div className="flex space-x-2">
-      {timeFrames.map(timeFrame => (
-        <Tooltip key={timeFrame}>
-          <TooltipTrigger asChild>
-            <Button
-              variant={currentTimeFrame === timeFrame ? "default" : "outline"}
-              size="sm"
-              onClick={() => onTimeFrameChange(timeFrame)}
-              className={currentTimeFrame === timeFrame ? "bg-primary" : ""}
-            >
-              {timeFrame}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>{getTimeFrameDescription(timeFrame)}</p>
-          </TooltipContent>
-        </Tooltip>
+    <div className="flex flex-wrap gap-2 p-2 glass-card rounded-lg">
+      {timeFrames.map((tf) => (
+        <Button
+          key={tf.value}
+          variant={currentTimeFrame === tf.value ? "default" : "outline"}
+          size="sm"
+          onClick={() => onTimeFrameChange(tf.value)}
+          className={currentTimeFrame === tf.value ? "bg-primary text-primary-foreground" : ""}
+        >
+          {tf.label}
+        </Button>
       ))}
     </div>
   );

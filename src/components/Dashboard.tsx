@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import SearchBar from './SearchBar';
 import PriceChart from './PriceChart';
 import RSIChart from './RSIChart';
 import StatsPanel from './StatsPanel';
 import TimeFrameSelector from './TimeFrameSelector';
+import VisualizationControls, { VisualizationOptions } from './VisualizationControls';
 import { availableCoins, generateMockData } from '@/lib/meme-coin-utils';
 import { loadCsvData, filterDataByTimeFrame } from '@/lib/csv-loader';
 import { toast } from "@/components/ui/use-toast";
@@ -17,15 +17,27 @@ const Dashboard = () => {
   const [timeFrame, setTimeFrame] = useState('ALL'); // Default to ALL time data
   const [loadError, setLoadError] = useState<string | null>(null);
   const [usingMockData, setUsingMockData] = useState(false);
+  
+  // Visualization options state
+  const [visualizationOptions, setVisualizationOptions] = useState<VisualizationOptions>({
+    showPrice: true,
+    showForecast: true,
+    showRSI: true,
+    showVolume: false,
+    showMarketCap: false,
+    showWhaleTransactions: false,
+    showLifestage: false
+  });
 
   const loadCoinData = async (symbol: string) => {
     setLoading(true);
     setLoadError(null);
     
     try {
-      // Find the coin from available coins
+      // Find the coin from available coins (case-insensitive search)
       const coin = availableCoins.find(c => 
-        c.symbol.toLowerCase() === symbol.toLowerCase()
+        c.symbol.toLowerCase() === symbol.toLowerCase() ||
+        c.name.toLowerCase() === symbol.toLowerCase()
       );
       
       if (!coin) {
@@ -42,8 +54,8 @@ const Dashboard = () => {
       
       // Try to load real CSV data
       try {
-        console.log(`Attempting to load data for ${symbol} from CSV...`);
-        const csvData = await loadCsvData(symbol);
+        console.log(`Attempting to load data for ${coin.symbol} from CSV...`);
+        const csvData = await loadCsvData(coin.symbol);
         
         if (csvData && csvData.length > 0) {
           // Ensure the data is sorted by timestamp
@@ -60,16 +72,16 @@ const Dashboard = () => {
             title: "Real Data Loaded",
             description: `${coin.name} (${coin.symbol}) data loaded with ${csvData.length} points.`,
           });
-          console.log(`Successfully loaded ${csvData.length} data points for ${symbol}`);
+          console.log(`Successfully loaded ${csvData.length} data points for ${coin.symbol}`);
         } else {
           throw new Error("No data points were loaded");
         }
       } catch (error) {
         console.error("Error during CSV load:", error);
-        setLoadError(`Failed to load data for ${symbol}. ${error instanceof Error ? error.message : ''}`);
+        setLoadError(`Failed to load data for ${coin.symbol}. ${error instanceof Error ? error.message : ''}`);
         
         // Fallback to mock data
-        console.log(`Using mock data for ${symbol}`);
+        console.log(`Using mock data for ${coin.symbol}`);
         const mockData = generateMockData(coin.symbol, 180); // 6 months of mock data
         setCoinData(mockData);
         setFilteredData(filterDataByTimeFrame(mockData, timeFrame));
@@ -111,6 +123,13 @@ const Dashboard = () => {
     setTimeFrame(newTimeFrame);
     setFilteredData(filterDataByTimeFrame(coinData, newTimeFrame));
   };
+  
+  const handleVisualizationOptionChange = (option: keyof VisualizationOptions, checked: boolean) => {
+    setVisualizationOptions(prev => ({
+      ...prev,
+      [option]: checked
+    }));
+  };
 
   // Load default coin on initial render
   useEffect(() => {
@@ -127,6 +146,29 @@ const Dashboard = () => {
         <SearchBar onSearch={handleSearch} />
       </div>
       
+      <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+        <div>
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <span className="text-2xl">{currentCoin.logo}</span>
+            {currentCoin.name} ({currentCoin.symbol})
+          </h2>
+          {usingMockData && (
+            <p className="text-sm text-doom font-medium mt-1">
+              Using mock data - Real data could not be loaded
+            </p>
+          )}
+        </div>
+        <TimeFrameSelector 
+          currentTimeFrame={timeFrame} 
+          onTimeFrameChange={handleTimeFrameChange} 
+        />
+      </div>
+      
+      <VisualizationControls 
+        options={visualizationOptions}
+        onOptionChange={handleVisualizationOptionChange}
+      />
+      
       {loading ? (
         <div className="flex items-center justify-center h-[500px] glass-card rounded-lg">
           <div className="text-center">
@@ -137,39 +179,25 @@ const Dashboard = () => {
       ) : filteredData.length === 0 ? (
         <div className="flex items-center justify-center h-[500px] glass-card rounded-lg">
           <div className="text-center">
-            <p className="text-xl mb-4">No data available for {currentCoin.symbol}</p>
+            <p className="text-xl mb-4">No data available for {currentCoin.symbol} in {timeFrame} timeframe</p>
             {loadError && (
               <p className="text-doom mb-4">{loadError}</p>
             )}
-            <p className="text-lg text-muted-foreground">Try searching for a different coin</p>
+            <p className="text-lg text-muted-foreground">Try selecting a different time frame</p>
           </div>
         </div>
       ) : (
         <>
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <div>
-              <h2 className="text-xl font-semibold flex items-center gap-2">
-                <span className="text-2xl">{currentCoin.logo}</span>
-                {currentCoin.name} ({currentCoin.symbol})
-              </h2>
-              {usingMockData && (
-                <p className="text-sm text-doom font-medium mt-1">
-                  Using mock data - Real data could not be loaded
-                </p>
-              )}
-            </div>
-            <TimeFrameSelector 
-              currentTimeFrame={timeFrame} 
-              onTimeFrameChange={handleTimeFrameChange} 
-            />
-          </div>
-          
           <PriceChart 
             data={filteredData} 
             symbol={currentCoin.symbol} 
-            logo={currentCoin.logo} 
+            logo={currentCoin.logo}
+            options={visualizationOptions}
           />
-          <RSIChart data={filteredData} />
+          <RSIChart 
+            data={filteredData} 
+            options={visualizationOptions}
+          />
           <StatsPanel data={filteredData} symbol={currentCoin.symbol} />
         </>
       )}

@@ -1,4 +1,3 @@
-
 import { MemeCoinData } from './meme-coin-utils';
 
 /**
@@ -6,8 +5,8 @@ import { MemeCoinData } from './meme-coin-utils';
  */
 export const loadCsvData = async (symbol: string): Promise<MemeCoinData[]> => {
   try {
-    // The correct path for the CSV files is in the public directory
-    const response = await fetch(`/src/data/ticker_data/${symbol.toUpperCase()}.csv`);
+    // Load from public directory instead of src
+    const response = await fetch(`/data/ticker_data/${symbol.toUpperCase()}.csv`);
     
     if (!response.ok) {
       console.error(`Failed to fetch ${symbol} data with status ${response.status}`);

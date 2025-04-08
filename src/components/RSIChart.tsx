@@ -1,4 +1,3 @@
-
 import React from 'react';
 import {
   ResponsiveContainer,
@@ -11,12 +10,14 @@ import {
   ReferenceLine,
 } from 'recharts';
 import { MemeCoinData } from '@/lib/meme-coin-utils';
+import { VisualizationOptions } from './VisualizationControls';
 
 interface RSIChartProps {
   data: MemeCoinData[];
+  options: VisualizationOptions;
 }
 
-const RSIChart: React.FC<RSIChartProps> = ({ data }) => {
+const RSIChart: React.FC<RSIChartProps> = ({ data, options }) => {
   // Skip some data points for better performance if too many points
   const chartData = data.length > 100 
     ? data.filter((_, i) => i % Math.floor(data.length / 100) === 0) 
@@ -48,7 +49,7 @@ const RSIChart: React.FC<RSIChartProps> = ({ data }) => {
         <p>
           <span className="font-bold">Condition:</span> {condition}
         </p>
-        {dataPoint.lifestage && (
+        {options.showLifestage && dataPoint.lifestage && (
           <p>
             <span className="font-bold">Life Stage:</span> {dataPoint.lifestage}
           </p>
@@ -70,87 +71,37 @@ const RSIChart: React.FC<RSIChartProps> = ({ data }) => {
     return '#8A2BE2'; // Neutral - neutral color
   }
 
+  if (!options.showRSI) {
+    return null;
+  }
+
   return (
-    <div className="w-full h-[200px] rounded-lg glass-card p-4">
-      <div className="flex justify-between items-center mb-2">
-        <h3 className="font-bold">RSI Indicator</h3>
-        <div className="flex space-x-4">
-          <div className="flex items-center">
-            <span className="w-3 h-3 bg-doom rounded-full mr-1"></span>
-            <span className="text-sm text-muted-foreground">Overbought</span>
-          </div>
-          <div className="flex items-center">
-            <span className="w-3 h-3 bg-neutral rounded-full mr-1"></span>
-            <span className="text-sm text-muted-foreground">Neutral</span>
-          </div>
-          <div className="flex items-center">
-            <span className="w-3 h-3 bg-boom rounded-full mr-1"></span>
-            <span className="text-sm text-muted-foreground">Oversold</span>
-          </div>
-        </div>
+    <div className="glass-card p-4 rounded-lg">
+      <h3 className="text-lg font-semibold mb-4">RSI Chart</h3>
+      <div className="h-[300px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={chartDataWithColors}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis 
+              dataKey="timestamp" 
+              tickFormatter={formatDate}
+              minTickGap={50}
+            />
+            <YAxis domain={[0, 100]} />
+            <Tooltip content={renderTooltip} />
+            <ReferenceLine y={70} stroke="#FF1493" strokeDasharray="3 3" />
+            <ReferenceLine y={30} stroke="#39FF14" strokeDasharray="3 3" />
+            <Area
+              type="monotone"
+              dataKey="rsi"
+              name="RSI"
+              stroke="#8A2BE2"
+              fill="#8A2BE2"
+              fillOpacity={0.3}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
       </div>
-      
-      <ResponsiveContainer width="100%" height="85%">
-        <AreaChart data={chartDataWithColors}>
-          <defs>
-            <linearGradient id="rsiGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#8A2BE2" stopOpacity={0.3} />
-              <stop offset="95%" stopColor="#8A2BE2" stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <XAxis 
-            dataKey="timestamp" 
-            tickFormatter={formatDate} 
-            tick={{ fill: '#9ca3af' }} 
-            tickLine={{ stroke: '#4b5563' }}
-            domain={['dataMin', 'dataMax']}
-            allowDataOverflow
-            height={15}
-          />
-          <YAxis 
-            domain={[0, 100]} 
-            tick={{ fill: '#9ca3af' }} 
-            tickLine={{ stroke: '#4b5563' }}
-            width={35}
-          />
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(75, 85, 99, 0.3)" />
-          <Tooltip content={renderTooltip} />
-          
-          {/* Overbought line */}
-          <ReferenceLine 
-            y={70} 
-            stroke="#FF1493" 
-            strokeDasharray="3 3" 
-            label={{ 
-              value: "70", 
-              position: "right", 
-              fill: '#FF1493'
-            }} 
-          />
-          
-          {/* Oversold line */}
-          <ReferenceLine 
-            y={30} 
-            stroke="#39FF14" 
-            strokeDasharray="3 3" 
-            label={{ 
-              value: "30", 
-              position: "right", 
-              fill: '#39FF14'
-            }} 
-          />
-          
-          <Area 
-            type="monotone" 
-            dataKey="rsi" 
-            stroke="#8A2BE2" 
-            strokeWidth={2}
-            fill="url(#rsiGradient)" 
-            dot={false}
-            activeDot={{ r: 4, fill: "#fff", stroke: "#8A2BE2" }}
-          />
-        </AreaChart>
-      </ResponsiveContainer>
     </div>
   );
 };
