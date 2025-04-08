@@ -16,6 +16,7 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(false);
   const [timeFrame, setTimeFrame] = useState('ALL');
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [usingMockData, setUsingMockData] = useState(true);
 
   const loadCoinData = async (symbol: string) => {
     setLoading(true);
@@ -39,7 +40,7 @@ const Dashboard = () => {
       
       // Try to load real CSV data
       try {
-        console.log(`Attempting to load data for ${symbol}...`);
+        console.log(`Attempting to load data for ${symbol} from path: /src/data/ticker_data/${symbol}.csv`);
         let csvData = await loadCsvData(symbol);
         
         if (csvData && csvData.length > 0) {
@@ -48,16 +49,18 @@ const Dashboard = () => {
           
           setCurrentCoin(coin);
           setCoinData(csvData);
+          setUsingMockData(false);
           
           // Also update filtered data based on current time frame
           const filtered = filterDataByTimeFrame(csvData, timeFrame);
           setFilteredData(filtered);
           
           toast({
-            title: "Data loaded",
+            title: "Real Data Loaded",
             description: `${coin.name} (${coin.symbol}) data loaded successfully with ${csvData.length} data points.`,
           });
           setLoadError(null);
+          setLoading(false);
           return;
         }
       } catch (error) {
@@ -71,6 +74,7 @@ const Dashboard = () => {
       setCurrentCoin(coin);
       setCoinData(mockData);
       setFilteredData(filterDataByTimeFrame(mockData, timeFrame));
+      setUsingMockData(true);
       
       toast({
         title: "Using mock data",
@@ -92,6 +96,7 @@ const Dashboard = () => {
       const mockData = generateMockData(currentCoin.symbol);
       setCoinData(mockData);
       setFilteredData(filterDataByTimeFrame(mockData, timeFrame));
+      setUsingMockData(true);
     } finally {
       setLoading(false);
     }
@@ -143,10 +148,17 @@ const Dashboard = () => {
       ) : (
         <>
           <div className="flex flex-col md:flex-row justify-between items-center">
-            <h2 className="text-xl font-semibold flex items-center gap-2">
-              <span className="text-2xl">{currentCoin.logo}</span>
-              {currentCoin.name} ({currentCoin.symbol})
-            </h2>
+            <div>
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <span className="text-2xl">{currentCoin.logo}</span>
+                {currentCoin.name} ({currentCoin.symbol})
+              </h2>
+              {usingMockData && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  Using mock data - CSV data could not be loaded
+                </p>
+              )}
+            </div>
             <TimeFrameSelector 
               currentTimeFrame={timeFrame} 
               onTimeFrameChange={handleTimeFrameChange} 

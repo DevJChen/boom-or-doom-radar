@@ -41,18 +41,15 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ data, symbol }) => {
   // Current lifestage
   const currentLifestage = latestData.lifestage || 'Unknown';
   
-  // Generate rockets based on score - use a regular for loop for safety
-  const rockets: JSX.Element[] = [];
-  for (let i = 0; i < safeScore; i++) {
-    rockets.push(
-      <Rocket 
-        key={i} 
-        className={`text-boom animate-pulse-boom`} 
-        size={20} 
-        style={{ animationDelay: `${i * 0.3}s` }}
-      />
-    );
-  }
+  // Generate rockets based on score - using Array.from for safety
+  const rockets = Array.from({ length: safeScore }, (_, i) => (
+    <Rocket 
+      key={i} 
+      className="text-boom animate-pulse-boom" 
+      size={20} 
+      style={{ animationDelay: `${i * 0.3}s` }}
+    />
+  ));
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

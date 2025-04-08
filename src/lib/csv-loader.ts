@@ -1,4 +1,3 @@
-
 import { MemeCoinData } from './meme-coin-utils';
 
 /**
@@ -6,8 +5,8 @@ import { MemeCoinData } from './meme-coin-utils';
  */
 export const loadCsvData = async (symbol: string): Promise<MemeCoinData[]> => {
   try {
-    // Correct the path to the CSV file - removing /src from the beginning
-    const response = await fetch(`/data/ticker_data/${symbol}.csv`);
+    // Updated path to point to the correct location in the public folder
+    const response = await fetch(`/src/data/ticker_data/${symbol}.csv`);
     
     if (!response.ok) {
       console.error(`Failed to fetch ${symbol} data with status ${response.status}`);
@@ -120,14 +119,13 @@ export const loadCsvData = async (symbol: string): Promise<MemeCoinData[]> => {
         let rolling_high_24h: number | undefined = undefined;
         let rolling_low_24h: number | undefined = undefined;
         
-        // Try to find high and low values
-        for (let i = 33; i < 36; i++) {
-          const val = parseNumeric(columns[i], undefined);
-          if (val !== undefined && val > price) {
-            rolling_high_24h = val;
-          } else if (val !== undefined && val < price) {
-            rolling_low_24h = val;
-          }
+        // Try to find high and low values in the correct columns based on the provided CSV structure
+        if (columns[34] && !isNaN(parseFloat(columns[34]))) {
+          rolling_high_24h = parseNumeric(columns[34]);
+        }
+        
+        if (columns[35] && !isNaN(parseFloat(columns[35]))) {
+          rolling_low_24h = parseNumeric(columns[35]);
         }
         
         // Fallback: if no explicit high/low values found, use price with a range
