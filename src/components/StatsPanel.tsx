@@ -22,10 +22,12 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ data, symbol }) => {
   const { high, low } = get24HHighLow(data);
   
   // Calculate volume change
-  const volumeChange = yesterday ? getPercentageChange(yesterday.volume || 0, latestData.volume || 0) : '0.00%';
+  const volumeChange = yesterday && yesterday.volume && latestData && latestData.volume ? 
+    getPercentageChange(yesterday.volume, latestData.volume) : '0.00%';
   
   // Calculate marketcap change
-  const marketCapChange = yesterday ? getPercentageChange(yesterday.market_cap || 0, latestData.market_cap || 0) : '0.00%';
+  const marketCapChange = yesterday && yesterday.market_cap && latestData && latestData.market_cap ? 
+    getPercentageChange(yesterday.market_cap, latestData.market_cap) : '0.00%';
   
   // Count whale transactions in last 24h
   const whaleTransactions = data

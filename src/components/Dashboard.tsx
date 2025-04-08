@@ -13,10 +13,10 @@ const Dashboard = () => {
   const [currentCoin, setCurrentCoin] = useState(availableCoins[0]);
   const [coinData, setCoinData] = useState(generateMockData(currentCoin.symbol));
   const [filteredData, setFilteredData] = useState(coinData);
-  const [loading, setLoading] = useState(false);
-  const [timeFrame, setTimeFrame] = useState('ALL');
+  const [loading, setLoading] = useState(true); // Start with loading state
+  const [timeFrame, setTimeFrame] = useState('ALL'); // Default to ALL time data
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [usingMockData, setUsingMockData] = useState(true);
+  const [usingMockData, setUsingMockData] = useState(false);
 
   const loadCoinData = async (symbol: string) => {
     setLoading(true);
@@ -38,65 +38,64 @@ const Dashboard = () => {
         return;
       }
       
+      setCurrentCoin(coin);
+      
       // Try to load real CSV data
       try {
-        console.log(`Attempting to load data for ${symbol} from path: /src/data/ticker_data/${symbol}.csv`);
-        let csvData = await loadCsvData(symbol);
+        console.log(`Attempting to load data for ${symbol} from CSV...`);
+        const csvData = await loadCsvData(symbol);
         
         if (csvData && csvData.length > 0) {
           // Ensure the data is sorted by timestamp
-          csvData = csvData.sort((a, b) => a.timestamp - b.timestamp);
+          const sortedData = [...csvData].sort((a, b) => a.timestamp - b.timestamp);
           
-          setCurrentCoin(coin);
-          setCoinData(csvData);
-          setUsingMockData(false);
-          
+          setCoinData(sortedData);
           // Also update filtered data based on current time frame
-          const filtered = filterDataByTimeFrame(csvData, timeFrame);
+          const filtered = filterDataByTimeFrame(sortedData, timeFrame);
           setFilteredData(filtered);
+          
+          setUsingMockData(false);
           
           toast({
             title: "Real Data Loaded",
-            description: `${coin.name} (${coin.symbol}) data loaded successfully with ${csvData.length} data points.`,
+            description: `${coin.name} (${coin.symbol}) data loaded with ${csvData.length} points.`,
           });
-          setLoadError(null);
-          setLoading(false);
-          return;
+          console.log(`Successfully loaded ${csvData.length} data points for ${symbol}`);
+        } else {
+          throw new Error("No data points were loaded");
         }
       } catch (error) {
         console.error("Error during CSV load:", error);
         setLoadError(`Failed to load data for ${symbol}. ${error instanceof Error ? error.message : ''}`);
+        
+        // Fallback to mock data
+        console.log(`Using mock data for ${symbol}`);
+        const mockData = generateMockData(coin.symbol, 180); // 6 months of mock data
+        setCoinData(mockData);
+        setFilteredData(filterDataByTimeFrame(mockData, timeFrame));
+        setUsingMockData(true);
+        
+        toast({
+          title: "Using mock data",
+          description: `Could not load real data for ${coin.symbol}, using generated data instead.`,
+          variant: "default"
+        });
       }
-      
-      // Fallback to mock data if CSV load fails
-      console.log(`Using mock data for ${symbol}`);
-      const mockData = generateMockData(coin.symbol);
-      setCurrentCoin(coin);
-      setCoinData(mockData);
-      setFilteredData(filterDataByTimeFrame(mockData, timeFrame));
-      setUsingMockData(true);
-      
-      toast({
-        title: "Using mock data",
-        description: `Could not load real data for ${coin.symbol}, using generated data instead.`,
-        variant: "default"
-      });
-      
     } catch (error) {
       console.error("Error loading coin data:", error);
       setLoadError(`General error loading data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      
+      // Set fallback mock data
+      const mockData = generateMockData(currentCoin.symbol, 180); // 6 months
+      setCoinData(mockData);
+      setFilteredData(filterDataByTimeFrame(mockData, timeFrame));
+      setUsingMockData(true);
       
       toast({
         title: "Error loading data",
         description: "Failed to load coin data. Using mock data instead.",
         variant: "destructive"
       });
-      
-      // Set fallback mock data
-      const mockData = generateMockData(currentCoin.symbol);
-      setCoinData(mockData);
-      setFilteredData(filterDataByTimeFrame(mockData, timeFrame));
-      setUsingMockData(true);
     } finally {
       setLoading(false);
     }
@@ -154,8 +153,8 @@ const Dashboard = () => {
                 {currentCoin.name} ({currentCoin.symbol})
               </h2>
               {usingMockData && (
-                <p className="text-sm text-muted-foreground mt-1">
-                  Using mock data - CSV data could not be loaded
+                <p className="text-sm text-doom font-medium mt-1">
+                  Using mock data - Real data could not be loaded
                 </p>
               )}
             </div>

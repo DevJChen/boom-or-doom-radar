@@ -1,3 +1,4 @@
+
 import { MemeCoinData } from './meme-coin-utils';
 
 /**
@@ -5,8 +6,8 @@ import { MemeCoinData } from './meme-coin-utils';
  */
 export const loadCsvData = async (symbol: string): Promise<MemeCoinData[]> => {
   try {
-    // Updated path to point to the correct location in the public folder
-    const response = await fetch(`/src/data/ticker_data/${symbol}.csv`);
+    // The correct path for the CSV files is in the public directory
+    const response = await fetch(`/src/data/ticker_data/${symbol.toUpperCase()}.csv`);
     
     if (!response.ok) {
       console.error(`Failed to fetch ${symbol} data with status ${response.status}`);
@@ -14,6 +15,12 @@ export const loadCsvData = async (symbol: string): Promise<MemeCoinData[]> => {
     }
     
     const csvText = await response.text();
+    console.log(`CSV data for ${symbol} loaded successfully, length: ${csvText.length}`);
+    
+    if (csvText.length < 10) {
+      throw new Error("CSV data is too short or empty");
+    }
+    
     const rows = csvText.trim().split('\n');
     
     // Skip the header row
@@ -27,16 +34,35 @@ export const loadCsvData = async (symbol: string): Promise<MemeCoinData[]> => {
         const columns = row.split(',');
         
         // Ensure we have enough columns
-        if (columns.length < 30) {
+        if (columns.length < 5) {
           console.warn(`Skipping row with insufficient columns: ${row}`);
           return null;
         }
         
         // Parse the timestamp (first column) - handle different date formats
-        const timestamp = new Date(columns[0]).getTime();
+        let timestamp;
+        try {
+          // Try to parse as ISO format first
+          timestamp = new Date(columns[0]).getTime();
+          
+          // If timestamp is invalid, try alternative formats
+          if (isNaN(timestamp)) {
+            // Try to extract date/time parts
+            const dateStr = columns[0].trim();
+            const parts = dateStr.split(/[- :]/);
+            if (parts.length >= 3) {
+              // Reconstruct in a format JavaScript likes better
+              const formattedDate = `${parts[0]}-${parts[1]}-${parts[2]}`;
+              timestamp = new Date(formattedDate).getTime();
+            }
+          }
+        } catch (e) {
+          console.error("Error parsing date:", columns[0], e);
+          return null;
+        }
         
         if (isNaN(timestamp)) {
-          console.warn(`Invalid timestamp in row: ${row}`);
+          console.warn(`Invalid timestamp in row: ${columns[0]}`);
           return null;
         }
         
@@ -46,95 +72,82 @@ export const loadCsvData = async (symbol: string): Promise<MemeCoinData[]> => {
           return isNaN(parsed) ? fallback : parsed;
         };
         
+        // Parse essential data
         const price = parseNumeric(columns[1]);
         const market_cap = parseNumeric(columns[2]);
         const volume = parseNumeric(columns[3]);
         
-        // Find column indices based on header names or use fixed positions for essential data
-        // These are the fixed positions for the primary indicators
-        const ema_6h = parseNumeric(columns[19], price);
-        const ema_24h = parseNumeric(columns[20], price);
-        const ma_6h = parseNumeric(columns[21], price);
-        const ma_24h = parseNumeric(columns[22], price);
-        
-        // Get RSI which is typically around column 29-30
-        let rsi = 50; // Default
-        for (let i = 29; i < 32; i++) {
-          if (columns[i] && !isNaN(parseFloat(columns[i]))) {
-            const val = parseNumeric(columns[i]);
-            if (val >= 0 && val <= 100) {
-              rsi = val;
-              break;
-            }
+        // Get RSI - look for it in different possible columns
+        let rsi = 50; // Default value
+        for (let i = 29; i < Math.min(36, columns.length); i++) {
+          const val = parseNumeric(columns[i], -1);
+          if (val >= 0 && val <= 100) {
+            rsi = val;
+            break;
           }
         }
         
+        // Get EMA values - typically in columns 19-22
+        const ema_6h = parseNumeric(columns[19] || '', price);
+        const ema_24h = parseNumeric(columns[20] || '', price);
+        const ma_6h = parseNumeric(columns[21] || '', price);
+        const ma_24h = parseNumeric(columns[22] || '', price);
+        
         // Find volatility - could be in different columns
         let volatility = 0.01;
-        for (let i = 25; i < 28; i++) {
-          if (columns[i] && !isNaN(parseFloat(columns[i]))) {
-            const val = parseNumeric(columns[i]);
-            if (val > 0 && val < 1) {
-              volatility = val;
-              break;
-            }
+        for (let i = 25; i < Math.min(30, columns.length); i++) {
+          const val = parseNumeric(columns[i], -1);
+          if (val > 0 && val < 1) {
+            volatility = val;
+            break;
           }
         }
         
         // Calculate Bollinger bands based on price and volatility
-        const bollinger_upper = price + volatility * 2;
-        const bollinger_lower = price - volatility * 2;
+        const bollinger_upper = price + (volatility * 2);
+        const bollinger_lower = price - (volatility * 2);
         
-        // Find whale transactions indicator - search for boolean or numeric values
+        // Find whale transactions indicator
         let whale_transactions = 0;
-        for (let i = 32; i < 35; i++) {
+        for (let i = 32; i < Math.min(36, columns.length); i++) {
           const val = columns[i];
-          if (val === 'True' || val === '1') {
+          if (val === 'True' || val === '1' || val?.toLowerCase() === 'true') {
             whale_transactions = 1;
             break;
           }
         }
         
-        // Look for forecast data - scan last few columns
+        // Look for forecast data
         let forecast_price = null;
-        for (let i = 35; i < columns.length; i++) {
-          if (columns[i] && columns[i] !== '' && !isNaN(parseFloat(columns[i]))) {
-            forecast_price = parseNumeric(columns[i]);
-            break;
+        for (let i = 35; i < Math.min(40, columns.length); i++) {
+          if (columns[i] && columns[i] !== '') {
+            const val = parseNumeric(columns[i], -1);
+            if (val > 0) {
+              forecast_price = val;
+              break;
+            }
           }
         }
         
-        // Find lifestage data in last columns
+        // Find lifestage data
         let lifestage = '';
-        for (let i = columns.length - 1; i > columns.length - 4; i--) {
+        for (let i = columns.length - 1; i > columns.length - 5; i--) {
           if (columns[i] && columns[i] !== '' && 
               (columns[i].includes('pump') || columns[i].includes('dump') || 
-              columns[i].includes('growth') || columns[i].includes('decline'))) {
+               columns[i].includes('growth') || columns[i].includes('decline'))) {
             lifestage = columns[i];
             break;
           }
         }
         
-        // Parse rolling highs and lows - search for reasonable values
-        let rolling_high_24h: number | undefined = undefined;
-        let rolling_low_24h: number | undefined = undefined;
+        // Get high/low values
+        let rolling_high_24h = parseNumeric(columns[columns.length - 3] || '', price * 1.05);
+        let rolling_low_24h = parseNumeric(columns[columns.length - 2] || '', price * 0.95);
         
-        // Try to find high and low values in the correct columns based on the provided CSV structure
-        if (columns[34] && !isNaN(parseFloat(columns[34]))) {
-          rolling_high_24h = parseNumeric(columns[34]);
-        }
-        
-        if (columns[35] && !isNaN(parseFloat(columns[35]))) {
-          rolling_low_24h = parseNumeric(columns[35]);
-        }
-        
-        // Fallback: if no explicit high/low values found, use price with a range
-        if (rolling_high_24h === undefined) rolling_high_24h = price * 1.05;
-        if (rolling_low_24h === undefined) rolling_low_24h = price * 0.95;
-        
-        // Validate the high is actually higher than low
-        if (rolling_high_24h < rolling_low_24h) {
-          [rolling_high_24h, rolling_low_24h] = [rolling_low_24h, rolling_high_24h];
+        // Validate high/low
+        if (rolling_high_24h <= rolling_low_24h) {
+          rolling_high_24h = price * 1.05;
+          rolling_low_24h = price * 0.95;
         }
         
         return {
@@ -162,7 +175,7 @@ export const loadCsvData = async (symbol: string): Promise<MemeCoinData[]> => {
     }).filter(item => item !== null) as MemeCoinData[];
   } catch (error) {
     console.error(`Error loading data for ${symbol}:`, error);
-    throw error; // Re-throw to handle in the UI layer
+    throw error;
   }
 };
 

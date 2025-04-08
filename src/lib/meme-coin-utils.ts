@@ -1,3 +1,4 @@
+
 // Types for meme coin data
 export interface MemeCoinData {
   timestamp: number;
@@ -37,7 +38,6 @@ export const availableCoins = [
   { symbol: 'BABYDOGE', name: 'Baby Doge Coin', logo: '🐶' },
   { symbol: 'SAMO', name: 'Samoyedcoin', logo: '🐕' },
   { symbol: 'ELON', name: 'Dogelon Mars', logo: '👽' },
-  // Additional coins from CSV files
   { symbol: 'AMC', name: 'AMC Entertainment', logo: '🎬' },
   { symbol: 'GME', name: 'GameStop', logo: '🎮' },
   { symbol: 'SLERF', name: 'Slerf', logo: '😴' },
@@ -46,16 +46,23 @@ export const availableCoins = [
 ];
 
 // Generate mock data for a given coin (fallback if CSV loading fails)
-export function generateMockData(symbol: string, days = 30): MemeCoinData[] {
+export function generateMockData(symbol: string, days = 180): MemeCoinData[] {
   const data: MemeCoinData[] = [];
   const now = Date.now();
   let price = Math.random() * (symbol === 'DOGE' ? 0.1 : 0.00001);
   let volume = Math.random() * 1000000000;
   let market_cap = price * volume * 10;
   
+  // Create more realistic mock data over a longer time period
   for (let i = 0; i < days * 24; i++) {
-    // Create some price volatility
-    const volatilityFactor = 1 + (Math.random() * 0.1 - 0.05);
+    // Create some price volatility with trends over time
+    // Use sine waves to simulate market cycles
+    const cycle = Math.sin(i / (24 * 30)) * 0.3; // Monthly cycle
+    const smallerCycle = Math.sin(i / 24) * 0.1; // Daily cycle
+    const randomFactor = (Math.random() * 0.1 - 0.05);
+    
+    const volatilityFactor = 1 + (cycle + smallerCycle + randomFactor) * 0.1;
+    
     price = price * volatilityFactor;
     volume = volume * (1 + (Math.random() * 0.2 - 0.1));
     market_cap = price * volume * 10;
@@ -63,9 +70,12 @@ export function generateMockData(symbol: string, days = 30): MemeCoinData[] {
     // Calculate technical indicators
     const ema_6h = price * (1 + (Math.random() * 0.03 - 0.015));
     const ma_6h = price * (1 + (Math.random() * 0.02 - 0.01));
+    const ema_24h = price * (1 + (Math.random() * 0.04 - 0.02));
+    const ma_24h = price * (1 + (Math.random() * 0.01 - 0.005));
     
     // Create some mood swings in RSI to simulate different market conditions
-    const rsi = 30 + Math.sin(i / 20) * 20 + Math.random() * 30;
+    // Higher frequency of changes for more realistic RSI movements
+    const rsi = 30 + Math.sin(i / 20) * 20 + Math.cos(i / 7) * 10 + Math.random() * 20;
     
     // Bollinger bands
     const bollinger_upper = price * (1 + 0.05 + Math.random() * 0.02);
@@ -74,18 +84,36 @@ export function generateMockData(symbol: string, days = 30): MemeCoinData[] {
     // Whale transactions (random spikes)
     const whale_transactions = Math.random() > 0.9 ? Math.floor(Math.random() * 5) + 1 : 0;
     
-    data.push({
-      timestamp: now - (days * 24 - i) * 3600 * 1000,
+    const point: MemeCoinData = {
+      timestamp: now - (days * 24 - i) * 3600 * 1000, // Decreasing timestamps (past to present)
       price,
       market_cap,
       volume,
       rsi,
       ema_6h,
       ma_6h,
+      ema_24h,
+      ma_24h,
       bollinger_upper,
       bollinger_lower,
-      whale_transactions
-    });
+      whale_transactions,
+      rolling_high_24h: price * 1.1,
+      rolling_low_24h: price * 0.9,
+    };
+    
+    // Add lifestage simulation for realistic market cycles
+    const dayIndex = Math.floor(i / 24);
+    if (dayIndex % 30 < 7) {
+      point.lifestage = "pre-pump";
+    } else if (dayIndex % 30 < 14) {
+      point.lifestage = "pump";
+    } else if (dayIndex % 30 < 21) {
+      point.lifestage = "post-pump";
+    } else {
+      point.lifestage = "consolidation";
+    }
+    
+    data.push(point);
   }
   
   return data;
