@@ -25,9 +25,33 @@ interface PriceChartProps {
 
 const PriceChart: React.FC<PriceChartProps> = ({ data, symbol, logo, options }) => {
   // Skip some data points for better performance if too many points
-  const chartData = data.length > 100 
+  let filteredData = data.length > 100 
     ? data.filter((_, i) => i % Math.floor(data.length / 100) === 0) 
-    : data;
+    : [...data];
+  
+  // Process data to prevent zero prices when forecast exists
+  const processedChartData = filteredData.map((point, index, array) => {
+    // If current point has zero price but has forecast, find last valid price
+    if (point.price === 0 && point.forecast_price && index > 0) {
+      // Look backwards to find the last valid price
+      let lastValidPrice = 0;
+      for (let i = index - 1; i >= 0; i--) {
+        if (array[i].price > 0) {
+          lastValidPrice = array[i].price;
+          break;
+        }
+      }
+      
+      // Return a new object with the valid price
+      return {
+        ...point,
+        price: lastValidPrice > 0 ? lastValidPrice : point.price
+      };
+    }
+    return point;
+  });
+  
+  const chartData = processedChartData;
   
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp);
