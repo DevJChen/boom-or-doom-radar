@@ -184,22 +184,68 @@ export const loadCsvData = async (symbol: string): Promise<MemeCoinData[]> => {
 export const filterDataByTimeFrame = (data: MemeCoinData[], timeFrame: string): MemeCoinData[] => {
   if (!data || data.length === 0) return [];
   
-  const now = Date.now();
+  // Get the current time or use the most recent data point as reference
+  let referenceTime = Date.now();
+  
+  // If data exists, use the most recent timestamp as a reference instead of current time
+  // This helps when working with historical or mock data
+  if (data.length > 0) {
+    const timestamps = data.map(item => item.timestamp);
+    const mostRecentTimestamp = Math.max(...timestamps);
+    
+    // Only use the most recent timestamp if it's valid and not too far in the future
+    if (!isNaN(mostRecentTimestamp) && mostRecentTimestamp > 0) {
+      referenceTime = mostRecentTimestamp;
+      console.log(`Using reference time: ${new Date(referenceTime).toISOString()}`);
+    }
+  }
+  
   const oneDay = 24 * 60 * 60 * 1000;
+  
+  // Debug information
+  console.log(`Filtering for timeFrame: ${timeFrame}`);
+  console.log(`Total data points before filtering: ${data.length}`);
+  
+  let filteredData: MemeCoinData[] = [];
   
   switch (timeFrame) {
     case '1D':
-      return data.filter(item => item.timestamp >= now - oneDay);
+      filteredData = data.filter(item => item.timestamp >= referenceTime - oneDay);
+      break;
     case '1W':
-      return data.filter(item => item.timestamp >= now - 7 * oneDay);
+      filteredData = data.filter(item => item.timestamp >= referenceTime - (7 * oneDay));
+      break;
     case '1M':
-      return data.filter(item => item.timestamp >= now - 30 * oneDay);
+      filteredData = data.filter(item => item.timestamp >= referenceTime - (30 * oneDay));
+      break;
     case '3M':
-      return data.filter(item => item.timestamp >= now - 90 * oneDay);
+      filteredData = data.filter(item => item.timestamp >= referenceTime - (90 * oneDay));
+      break;
     case '1Y':
-      return data.filter(item => item.timestamp >= now - 365 * oneDay);
+      filteredData = data.filter(item => item.timestamp >= referenceTime - (365 * oneDay));
+      break;
     case 'ALL':
     default:
-      return data;
+      filteredData = [...data];
+      break;
   }
+  
+  // If we filtered out all data, return a portion of the original data as fallback
+  if (filteredData.length === 0 && data.length > 0) {
+    console.warn(`No data points found in ${timeFrame} timeframe, using fallback`);
+    
+    // Return the most recent portion of data as fallback
+    const fallbackCount = Math.min(data.length, timeFrame === '1D' ? 24 : 
+                                            timeFrame === '1W' ? 7 * 24 : 
+                                            timeFrame === '1M' ? 30 * 24 : data.length);
+    
+    // Sort data by timestamp (newest first) and take the most recent points
+    const sortedData = [...data].sort((a, b) => b.timestamp - a.timestamp);
+    filteredData = sortedData.slice(0, fallbackCount);
+  }
+  
+  console.log(`Filtered data points: ${filteredData.length}`);
+  
+  // Sort by timestamp (oldest first) before returning
+  return filteredData.sort((a, b) => a.timestamp - b.timestamp);
 };

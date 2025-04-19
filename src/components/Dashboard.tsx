@@ -120,8 +120,25 @@ const Dashboard = () => {
   };
   
   const handleTimeFrameChange = (newTimeFrame: string) => {
+    console.log(`Time frame changed to: ${newTimeFrame}`);
     setTimeFrame(newTimeFrame);
-    setFilteredData(filterDataByTimeFrame(coinData, newTimeFrame));
+    
+    // Apply the time frame filter and update the UI
+    const filtered = filterDataByTimeFrame(coinData, newTimeFrame);
+    
+    // Add debug info
+    console.log(`Filtered from ${coinData.length} to ${filtered.length} data points`);
+    
+    // Check if any data remains after filtering
+    if (filtered.length === 0 && coinData.length > 0) {
+      toast({
+        title: "No data for selected time frame",
+        description: `The ${newTimeFrame} time frame doesn't have any data. Using fallback data instead.`,
+        variant: "default"
+      });
+    }
+    
+    setFilteredData(filtered);
   };
   
   const handleVisualizationOptionChange = (option: keyof VisualizationOptions, checked: boolean) => {

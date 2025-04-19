@@ -14,6 +14,7 @@ export interface MemeCoinData {
   whale_transactions: number;
   forecast_price?: number | null;
   lifestage?: string;
+  lifestage_x?: string;
   rolling_high_24h?: number;
   rolling_low_24h?: number;
 }
@@ -86,8 +87,16 @@ export function generateMockData(symbol: string, days = 180): MemeCoinData[] {
   let volume = Math.random() * 1000000000;
   let market_cap = price * volume * 10;
   
-  // Create more realistic mock data over a longer time period
+  // Create timestamps with proper interval distribution
+  const hourInMillis = 3600 * 1000;
+  const endTime = now;
+  const startTime = now - (days * 24 * hourInMillis);
+  
+  // Create data points at hourly intervals
   for (let i = 0; i < days * 24; i++) {
+    // Calculate timestamp for this data point (past to present)
+    const timestamp = startTime + (i * hourInMillis);
+    
     // Create some price volatility with trends over time
     // Use sine waves to simulate market cycles
     const cycle = Math.sin(i / (24 * 30)) * 0.3; // Monthly cycle
@@ -118,7 +127,7 @@ export function generateMockData(symbol: string, days = 180): MemeCoinData[] {
     const whale_transactions = Math.random() > 0.9 ? Math.floor(Math.random() * 5) + 1 : 0;
     
     const point: MemeCoinData = {
-      timestamp: now - (days * 24 - i) * 3600 * 1000, // Decreasing timestamps (past to present)
+      timestamp,
       price,
       market_cap,
       volume,
@@ -146,10 +155,14 @@ export function generateMockData(symbol: string, days = 180): MemeCoinData[] {
       point.lifestage = "consolidation";
     }
     
+    // Also add to lifestage_x for compatibility with the chart
+    point.lifestage_x = point.lifestage;
+    
     data.push(point);
   }
   
-  return data;
+  // Sort by timestamp to ensure proper ordering
+  return data.sort((a, b) => a.timestamp - b.timestamp);
 }
 
 // Calculate the "Boom or Doom" score (0-5 scale)
